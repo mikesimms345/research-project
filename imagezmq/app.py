@@ -2,27 +2,33 @@ import flask
 from flask import request, render_template, Response
 import imagezmq
 import cv2
+import socket
+import time
+from picamera2 import Picamera2
+import zmq
 
 app = flask.Flask(__name__)
-image_hub = imagezmq.ImageHub()
-camera = cv2.VideoCapture(0)
+
 def gen_frames():
+    picam = Picamera2()
+    picam.start()
+    time.sleep(3.0)
     while True:
-        success, frame = camera.read()  # read the camera frame
+        frame = picam.capture_array()
+        success, encoded_image = cv2.imencode('.jpg', frame)
         if not success:
-            break
-        else:
-            ret, buffer = cv2.imencode('.jpg', frame)
-            frame = buffer.tobytes()
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')  # concat frame one by one and show result
-@app.route('/')
-def index():
-    return render_template("index.html")
+            print("Failed to encode image")
+            continue
+        frame_bytes = encoded_image.tobytes()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
 @app.route('/video_feed')
 def video_feed():
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+@app.route('/')
+def index():
+    return render_template("index.html")
 
 if __name__=='__main__':
     app.run(debug=True,use_reloader=False, port=8000)
