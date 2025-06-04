@@ -1,11 +1,9 @@
 import flask
 from flask import request, render_template, Response
-import imagezmq
 import cv2
 import socket
 import time
 from picamera2 import Picamera2
-import zmq
 
 app = flask.Flask(__name__)
 
@@ -26,6 +24,7 @@ def gen_frames():
 @app.route('/video_feed')
 def video_feed():
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
 @app.route('/')
 def index():
     return render_template("index.html")

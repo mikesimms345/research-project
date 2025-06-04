@@ -13,7 +13,10 @@
 </style>
 <body>
 <h1>ImageZMQ Demo With Flask Web Page</h1>
-<div class="video-container"></div>
+<div id="video-container">
+    <img src="{{ url_for('video_feed') }}">
+</div>
+
 
 </body>
 
