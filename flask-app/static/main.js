@@ -1,14 +1,16 @@
 import io from 'https://cdn.socket.io/4.7.2/socket.io.esm.min.js';
 
-const socket = io('Put Signaling Server Ip address here!');
+const socket = io('Web address here');
 
 let localStream;
 let remoteStream;
 let room = "room" + Math.random().toString(16);
 let pc;
+let user_num;
 
 const webcamButton = document.getElementById('webcamButton');
 const callButton = document.getElementById('callButton');
+const copyButton = document.getElementById('copyButton');
 const answerButton = document.getElementById('answerButton');
 const hangupButton = document.getElementById('hangupButton');
 const webcamVideo = document.getElementById('webcamVideo');
@@ -55,12 +57,30 @@ webcamButton.onclick = async () => {
 
 // Handling Call Button (For the Caller)
 callButton.onclick = async () => {
+  if (localStream === null) {
+    alert("Webcam isn't working, refresh and try again!");
+  }
   createPeerConnection();
-  socket.emit('join', {room});
   localStream.getTracks().forEach(track => {
     pc.addTrack(track);
   })
+  socket.emit('join', {room});
   console.log("the room id is " + room);
+  // Prints the room code to the page
+  const para = document.createElement("p");
+  const node = document.createTextNode("The Room ID: " + room);
+  para.appendChild(node);
+  const element = document.getElementById("create_call")
+  element.appendChild(para);
+}
+
+copyButton.onclick = async () => {
+  try {
+    navigator.clipboard.writeText(room);
+  } catch (err) {
+    console.log("Error: ", err);
+  }
+  alert("Copied to clipboard");
 }
 
 // Handling the answer button (For the Callee)
@@ -83,6 +103,7 @@ hangupButton.onclick = async () => {
   remoteStream.getTracks().forEach(track => {
     track.stop()
   })
+  remoteStream = null
   pc.close();
 }
 
@@ -97,6 +118,7 @@ socket.on('joined', async () => {
   await pc.setLocalDescription(offer);
   console.log("local description is set!")
   socket.emit('offer', {room, offer});
+
 })
 
 socket.on('offer', async (offer) => {
