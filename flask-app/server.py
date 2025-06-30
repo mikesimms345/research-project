@@ -4,6 +4,7 @@ from flask_socketio import SocketIO, emit, join_room
 app = Flask(__name__, static_folder='static')
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+#Display Webpage
 @app.route('/')
 def index():
     return render_template('index.html')
