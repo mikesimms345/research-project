@@ -1,12 +1,11 @@
-//import { io } from 'socket.io-client';
 import io from 'https://cdn.socket.io/4.7.2/socket.io.esm.min.js';
 
-
-const socket = io('your signaling server ip address here!');
+const socket = io('Put Signaling Server Ip address here!');
 
 let localStream;
 let remoteStream;
-let room = 'webrtc-test-fr';
+let room = "room" + Math.random().toString(16);
+let pc;
 
 const webcamButton = document.getElementById('webcamButton');
 const callButton = document.getElementById('callButton');
@@ -23,7 +22,29 @@ const servers = {
   ]
 }
 
-const pc = new RTCPeerConnection(servers);
+// Used so I don't get anymore errors with addTrack
+function createPeerConnection() {
+  pc = new RTCPeerConnection(servers);
+
+  //Handling Remote Media Stream
+  remoteStream = new MediaStream();
+  pc.ontrack = event => {
+    remoteStream.addTrack(event.track);
+    console.log("stream received");
+  };
+  remoteVideo.srcObject = remoteStream;
+
+  // Ice Candidates
+  pc.onicecandidate = event => {
+    if (event.candidate) {
+      console.log("Sent ICE Candidates");
+      socket.emit('ice-candidate', {
+        room, candidate: event.candidate
+      })
+    }
+}
+
+}
 
 // Start webcam
 webcamButton.onclick = async () => {
@@ -31,40 +52,31 @@ webcamButton.onclick = async () => {
   webcamVideo.srcObject = localStream;
 };
 
-//Handling Remote Media Stream
-remoteStream = new MediaStream();
-pc.ontrack = event => {
-  remoteStream.addTrack(event.track);
-  console.log("stream received")
-};
-remoteVideo.srcObject = remoteStream;
 
-// Ice Candidates
-pc.onicecandidate = event => {
-  if (event.candidate) {
-    console.log("Sent ICE Candidates")
-    socket.emit('ice-candidate', {
-      room, candidate: event.candidate
-    })
-  }
-}
-
-// Handling Call Button
+// Handling Call Button (For the Caller)
 callButton.onclick = async () => {
-  socket.emit('join', {room})
+  createPeerConnection();
+  socket.emit('join', {room});
   localStream.getTracks().forEach(track => {
     pc.addTrack(track);
   })
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-  console.log("local description is set!")
-
-  socket.emit('offer', {room, offer})
+  console.log("the room id is " + room);
 }
 
+// Handling the answer button (For the Callee)
 answerButton.onclick = async () => {
+  if (!localStream) {
+    console.log("Webcam is not on, please refresh the page and try again!")
+  }
+  createPeerConnection()
+  room = document.getElementById("callInput").value
+  //Put logic checks on this to ensure no XSS
+  localStream.getTracks().forEach(track => {
+    pc.addTrack(track);
+  })
+  console.log("the room id is ", room)
   socket.emit ('join', {room})
-  document.querySelector('#callButton').innerHTML = 'Join the Call!'
+  console.log('room joined')
 }
 
 hangupButton.onclick = async () => {
@@ -79,17 +91,22 @@ socket.on('ice-candidate', async (candidate) => {
   await pc.addIceCandidate(new RTCIceCandidate(candidate));
 })
 
-socket.on('joined', () => {
+socket.on('joined', async () => {
   console.log('User joined');
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  console.log("local description is set!")
+  socket.emit('offer', {room, offer});
 })
 
 socket.on('offer', async (offer) => {
+  if (!pc){
+    createPeerConnection();
+  }
   console.log("Received offer");
-
   await pc.setRemoteDescription(new RTCSessionDescription(offer));
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
-
   socket.emit('answer', {room, answer})
 
 })
