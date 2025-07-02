@@ -1,14 +1,16 @@
 import io from 'https://cdn.socket.io/4.7.2/socket.io.esm.min.js';
 
-const socket = io('Put Signaling Server Ip address here!');
+const socket = io('REPLACE WITH SIGNAL SERVER ADDRESS HERE');
 
 let localStream;
 let remoteStream;
-let room = "room" + Math.random().toString(16);
+let buf = new BigUint64Array(1);
+let room = "room" + crypto.getRandomValues(buf)
 let pc;
 
 const webcamButton = document.getElementById('webcamButton');
 const callButton = document.getElementById('callButton');
+const copyButton = document.getElementById('copyButton');
 const answerButton = document.getElementById('answerButton');
 const hangupButton = document.getElementById('hangupButton');
 const webcamVideo = document.getElementById('webcamVideo');
@@ -55,12 +57,30 @@ webcamButton.onclick = async () => {
 
 // Handling Call Button (For the Caller)
 callButton.onclick = async () => {
+  if (localStream === null) {
+    alert("Webcam isn't working, refresh and try again!");
+  }
   createPeerConnection();
-  socket.emit('join', {room});
   localStream.getTracks().forEach(track => {
     pc.addTrack(track);
   })
+  socket.emit('join', {room});
   console.log("the room id is " + room);
+  // Prints the room code to the page
+  const para = document.createElement("p");
+  const node = document.createTextNode("The Room ID: " + room);
+  para.appendChild(node);
+  const element = document.getElementById("create_call")
+  element.appendChild(para);
+}
+
+copyButton.onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(room);
+  } catch (err) {
+    console.log("Error: ", err);
+  }
+  alert("Copied to clipboard");
 }
 
 // Handling the answer button (For the Callee)
@@ -69,20 +89,28 @@ answerButton.onclick = async () => {
     console.log("Webcam is not on, please refresh the page and try again!")
   }
   createPeerConnection()
-  room = document.getElementById("callInput").value
+  room = document.getElementById("callInput").value.trim()
+  const sanitized_room = room.replace(/[<>]/g, '')
+  const element = document.getElementById("error_message");
+  if (sanitized_room.length !== 24) {
+    element.textContent = "Room ID is invalid, try again!"
+  }
+  console.log("Sanitized " + sanitized_room);
+  if (element) {
+    element.textContent = ''
+  }
   //Put logic checks on this to ensure no XSS
   localStream.getTracks().forEach(track => {
     pc.addTrack(track);
   })
-  console.log("the room id is ", room)
-  socket.emit ('join', {room})
-  console.log('room joined')
+  socket.emit ('ans_join', {room})
 }
 
 hangupButton.onclick = async () => {
   remoteStream.getTracks().forEach(track => {
     track.stop()
   })
+  remoteStream = null
   pc.close();
 }
 
@@ -108,7 +136,6 @@ socket.on('offer', async (offer) => {
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
   socket.emit('answer', {room, answer})
-
 })
 
 socket.on('answer', async (answer) => {
@@ -116,6 +143,21 @@ socket.on('answer', async (answer) => {
   await pc.setRemoteDescription(new RTCSessionDescription(answer));
 })
 
-socket.on('disconnect', () => {
+socket.on('disconnect', async () => {
   console.log('User disconnected');
+  remoteStream = null
+  pc.close();
 })
+
+socket.on("failed join", async () => {
+  console.log('User failed join');
+  const element = document.getElementById("error_message");
+  element.textContent = "The room " + room + " does not exist, please try again!";
+})
+
+// Restarts the connection to ICE servers if network conditions change
+// pc.oniceconnectionstatechange = () => {
+//   if (pc.iceConnectionState === 'failed') {
+//     pc.restartIce()
+//   }
+// }
