@@ -1,17 +1,7 @@
 import io from 'https://cdn.socket.io/4.7.2/socket.io.esm.min.js';
 
-// --- Authentication Check ---
-const token = localStorage.getItem('access_token');
-console.log(token);
-if (!token) {
-  // If no token, redirect to login page
-  window.location.href = '/';
-  console.log("Error generating token");
-}
-
-// --- Authenticated Socket.IO Connection ---
-const socket = io('https://192.168.1.165:8081', {
-    query: { token } // Pass token for authentication
+const socket = io('put signaling server ip address here!', {
+    withCredentials: true
 });
 
 
@@ -28,6 +18,7 @@ const answerButton = document.getElementById('answerButton');
 const hangupButton = document.getElementById('hangupButton');
 const webcamVideo = document.getElementById('webcamVideo');
 const remoteVideo = document.getElementById('remoteVideo');
+const logoutButton = document.getElementById('logoutButton');
 
 const servers = {
   iceServers: [
@@ -62,10 +53,9 @@ function createPeerConnection() {
 
 // Start webcam
 webcamButton.onclick = async () => {
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false});
   webcamVideo.srcObject = localStream;
 };
-
 
 // Handling Call Button (For the Caller)
 callButton.onclick = async () => {
@@ -130,6 +120,29 @@ hangupButton.onclick = async () => {
         pc = null;
     }
     remoteVideo.srcObject = null;
+};
+
+
+logoutButton.onclick = async () => {
+    try {
+        const response = await fetch('/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log('Successfully logged out:', data.message);
+            window.location.href = '/login';
+        } else {
+          console.error('Logout failed: ', data.message);
+        }
+    } catch (error) {
+        console.error('An error occurred during the logout process:', error);
+    }
 };
 
 socket.on('ice-candidate', async (candidate) => {

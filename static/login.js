@@ -17,9 +17,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         const data = await response.json();
         console.log(data);
 
-        if (response.ok && data.access_token) {
-            // Store the token and redirect to the main app
-            localStorage.setItem('access_token', data.access_token);
+        if (response.ok) {
             window.location.href = '/chat';
         } else {
             messageElement.textContent = data.msg || 'Login failed.';
