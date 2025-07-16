@@ -1,6 +1,6 @@
 import io from 'https://cdn.socket.io/4.7.2/socket.io.esm.min.js';
 
-const socket = io('put signaling server ip address here!', {
+const socket = io('https://192.168.1.165:8082', {
     withCredentials: true
 });
 
@@ -108,6 +108,7 @@ answerButton.onclick = async () => {
   localStream.getTracks().forEach(track => {
     pc.addTrack(track, localStream);
   });
+  console.log("made it here");
   socket.emit ('ans_join', {room});
 }
 
@@ -164,9 +165,6 @@ socket.on('joined', async () => {
 
 socket.on('offer', async (offer) => {
   if (!pc){
-    // This case handles the answerer who doesn't have a PC yet.
-    // However, current logic on answerButton.onclick already creates it.
-    // This is a safe fallback.
     createPeerConnection();
   }
   console.log("Received offer");
@@ -183,10 +181,12 @@ socket.on('answer', async (answer) => {
   }
 })
 
-socket.on('disconnect_peer', async () => {
-  console.log('The other user disconnected');
-  hangupButton.onclick(); // Reuse hangup logic
-})
+// Fix this later, want to essentially refresh the remote stream if the other user disconnects
+// socket.on('disconnect', () => {
+//     socket.emit('disconnect');
+//     remoteVideo.removeAttribute('src');
+//     remoteVideo.load();
+// })
 
 socket.on("failed join", async () => {
   console.log('User failed join');

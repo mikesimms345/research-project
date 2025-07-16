@@ -10,6 +10,7 @@ from datetime import timedelta, datetime, timezone
 app = Flask(__name__, static_folder='static')
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# Config
 app.config['SECRET_KEY'] = 'your-super-secret-key-change-me'
 app.config['JWT_SECRET_KEY'] = 'your-jwt-secret-key-change-me'
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=30)
@@ -190,12 +191,10 @@ def handle_ice_candidate(data):
 @socketio.on('disconnect')
 def handle_disconnect():
     sid = request.sid
-    username = session.get('username', 'Unknown')
-    jti = session.get('jti')
+    username = session.get('username')
     response = jsonify({'message': 'logout successful'})
     unset_jwt_cookies(response)
     print(f"(Disconnect) {username} ({sid}) disconnected")
-    return response, 200
 
 
 if __name__ == '__main__':
